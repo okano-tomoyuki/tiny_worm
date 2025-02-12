@@ -177,7 +177,32 @@ RawSocket::~RawSocket()
 std::vector<std::string> RawSocket::enable_addr_list() const
 {
 #ifdef __unix__
-    return std::vector<std::string>();
+    struct ifaddrs *ifap;
+    char addr[INET_ADDRSTRLEN];
+
+    if (getifaddrs(&ifap) != 0) 
+    {
+        std::cout << "getifaddrs error" << get_error() << std::endl;
+    }
+
+    auto ret    = std::vector<std::string>();
+    for (auto ifa = ifap; ifa != nullptr; ifa = ifa->ifa_next) 
+    {
+        if (ifa->ifa_addr->sa_family == AF_INET) 
+        {
+            auto sa = (sockaddr_in*)(ifa->ifa_addr);
+            inet_ntop(AF_INET, &(sa->sin_addr), addr, INET_ADDRSTRLEN);
+
+            if (std::string(ifa->ifa_name) != "lo")
+            {
+                ret.push_back(addr);
+            }
+        }
+    }
+    freeifaddrs(ifap);
+
+    return ret;
+    
 #else
     char buffer[1024];
     auto bytes  = DWORD{0};
@@ -188,7 +213,7 @@ std::vector<std::string> RawSocket::enable_addr_list() const
     }
 
     auto list   = (SOCKET_ADDRESS_LIST*)buffer;
-    auto ret    = std::vector<std::string>();  
+    auto ret    = std::vector<std::string>();
     for (auto i = 0; i < list->iAddressCount; i++)
     {
         ret.push_back(inet_ntoa(((sockaddr_in*)list->Address[i].lpSockaddr)->sin_addr));
