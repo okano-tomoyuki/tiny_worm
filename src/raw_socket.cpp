@@ -268,9 +268,10 @@ void RawSocket::set_addr(const std::string& addr_name)
 #endif
 }
 
-std::string RawSocket::capture() const
+bool RawSocket::capture(std::string& meta, std::string& payload) const
 {
-    auto ret            = std::string();
+    meta.clear();
+    payload.clear();
     const auto bytes    = recv(sock_, (char*)buffer_, sizeof(buffer_), 0);
     
     auto ntoa = [](const uint32_t addr)
@@ -290,81 +291,45 @@ std::string RawSocket::capture() const
             const auto flags    = (byte_swap(ih->flag_offset) >> 13) & 0x07;
             const auto offset   = (byte_swap(ih->flag_offset) & 0x1FFF) * 8;
 
-            ret += "IP Header:\n";
-            ret += "  Version: " + std::to_string((ih->vhl >> 4) & 0x0F) + "\n";
-            ret += "  Header Length: " + std::to_string(ihl) + " bytes \n";
-            ret += "  Type of Service: " + std::to_string(ih->tos) + "\n";
-            ret += "  Total Length: " + std::to_string(byte_swap(ih->len)) + " bytes \n";
-            ret += "  Identification: " + std::to_string(byte_swap(ih->id)) + "\n";
-            ret += "  Flags: " + std::to_string(flags) + "\n";
-            ret += "  Fragment Offset: " + std::to_string(offset) + "\n";
-            ret += "  Time to Live: " + std::to_string(ih->ttl) + "\n";
-            ret += "  Protocol: " + std::string(PROTO_NAMES[ih->protocol]) + "\n";
-            ret += "  Header Checksum: " + std::to_string(ih->checksum) + "\n";
-            ret += "  Source Address: " + ntoa(ih->src_addr) + "\n";
-            ret += "  Destination Address: " + ntoa(ih->dst_addr) + "\n";
+            meta += "IP Header:\n";
+            meta += "  Version: " + std::to_string((ih->vhl >> 4) & 0x0F) + "\n";
+            meta += "  Header Length: " + std::to_string(ihl) + " bytes \n";
+            meta += "  Type of Service: " + std::to_string(ih->tos) + "\n";
+            meta += "  Total Length: " + std::to_string(byte_swap(ih->len)) + " bytes \n";
+            meta += "  Identification: " + std::to_string(byte_swap(ih->id)) + "\n";
+            meta += "  Flags: " + std::to_string(flags) + "\n";
+            meta += "  Fragment Offset: " + std::to_string(offset) + "\n";
+            meta += "  Time to Live: " + std::to_string(ih->ttl) + "\n";
+            meta += "  Protocol: " + std::string(PROTO_NAMES[ih->protocol]) + "\n";
+            meta += "  Header Checksum: " + std::to_string(ih->checksum) + "\n";
+            meta += "  Source Address: " + ntoa(ih->src_addr) + "\n";
+            meta += "  Destination Address: " + ntoa(ih->dst_addr) + "\n";
 
             if (ih->protocol == IPPROTO_ICMP)
             {
-                const auto icmp_header = (IcmpHeader*)((void*)&buffer_[ihl]);
-                if (icmp_header->type == 8) // ICMP Echo Request
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(IcmpHeader)], bytes - ihl - sizeof(IcmpHeader));
-                }
-                if (icmp_header->type == 0) // ICMP Echo Reply
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(IcmpHeader)], bytes - ihl - sizeof(IcmpHeader));
-                }
-                if (icmp_header->type == 3) // ICMP Destination Unreachable
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(IcmpHeader)], bytes - ihl - sizeof(IcmpHeader));
-                }
-                if (icmp_header->type == 11) // ICMP Time Exceeded
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(IcmpHeader)], bytes - ihl - sizeof(IcmpHeader));
-                }
-                if (icmp_header->type == 12) // ICMP Parameter Problem
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(IcmpHeader)], bytes - ihl - sizeof(IcmpHeader));
-                }
-                if (icmp_header->type == 13) // ICMP Redirect
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(IcmpHeader)], bytes - ihl - sizeof(IcmpHeader));
-                }
+                const auto icmp_header  = (IcmpHeader*)&buffer_[ihl];
             }
 
             if (ih->protocol == IPPROTO_IGMP)
             {
-                const auto igmp_header  = (IgmpHeader*)((void*)&buffer_[ihl]);
+                const auto igmp_header  = (IgmpHeader*)&buffer_[ihl];
                 const auto igmp_ver     = (igmp_header->type >> 4) & 0x0F;
                 const auto igmp_type    = igmp_header->type & 0x0F;
-                
-
-                return "IGMP Header:\n  Version: " + std::to_string(igmp_ver) + "\n" + "  Type: " + std::to_string(igmp_type) + "\n";
             }
 
             if (ih->protocol == IPPROTO_TCP)
             {
-                const auto tcp_header = (TcpHeader*)((void*)&buffer_[ihl]);
-                if (tcp_header->dst_port == 80) // HTTP
-                {
-                    // 
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(TcpHeader)], bytes - ihl - sizeof(TcpHeader));
-                }
+                const auto tcp_header   = (TcpHeader*)&buffer_[ihl];
+                payload = std::string((char*)&buffer_[ihl + sizeof(TcpHeader)], bytes - ihl - sizeof(TcpHeader));
             }
 
             if (ih->protocol == IPPROTO_UDP)
             {
-                auto udp_header = (UdpHeader*)((void*)&buffer_[ihl]);
-                if (udp_header->dst_port == 53) // DNS
-                {
-                    return ret + std::string((char*)&buffer_[ihl + sizeof(UdpHeader)], bytes - ihl - sizeof(UdpHeader));
-                }
+                const auto udp_header   = (UdpHeader*)&buffer_[ihl];
+                payload = std::string((char*)&buffer_[ihl + sizeof(UdpHeader)], byte_swap(udp_header->len));
             }
         }
-
-        return ret;
     }
 
-    return ret;
+    return !meta.empty() || !payload.empty();
 }

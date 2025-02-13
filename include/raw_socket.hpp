@@ -25,12 +25,32 @@
 class RawSocket
 {
 public:
+    enum OptionType
+    {
+        SRC_ADDR,
+        DST_ADDR,
+        BOTH_ADDR,
+        SRC_PORT,
+        DST_PORT,
+        BOTH_PORT,
+    };
+
+    template<typename T>
+    class Option
+    {
+    private:
+        static void assign(std::vector<std::string>& dst, const std::vector<int>& src);
+        static void assign(std::vector<std::string>& dst, const std::vector<std::string>& src);
+    };
+
     RawSocket();
     ~RawSocket();
 
     std::vector<std::string> enable_addr_list() const;
     void set_addr(const std::string& addr_name);
-    std::string capture() const;
+    bool capture(std::string& meta, std::string& payload) const;
+
+    RawSocket& add_filter();
 
 private:
 #ifdef __unix__

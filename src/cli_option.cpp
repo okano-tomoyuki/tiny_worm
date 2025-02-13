@@ -23,7 +23,7 @@ static void add_lines(const std::string& str, std::vector<std::string>& lines)
         }
 
         line   = remain.substr(0, 100);
-        pos    = line.find_last_of(",. ", 100);
+        pos    = line.find_last_of(",. \n", 100);
 
         if (pos == std::string::npos)
         {
@@ -32,8 +32,19 @@ static void add_lines(const std::string& str, std::vector<std::string>& lines)
         }
         else
         {
-            lines.push_back(remain.substr(0, pos + 1));
-            remain = remain.substr(pos + 1);
+            if (remain[pos] == '\n')
+            {
+                lines.push_back(remain.substr(0, pos));
+                lines.push_back("");
+                remain = remain.substr(pos + 1);
+            }
+            else
+            {
+                lines.push_back(remain.substr(0, pos + 1));
+                remain = remain.substr(pos + 1);
+            }
+            // lines.push_back(remain.substr(0, pos + 1));
+            // remain = remain.substr(pos + 1);
         }
     }
 }

@@ -9,9 +9,7 @@ char LISENCE_TEXT1[1024] =
 "the Software without restriction, including without limitation the rights to use, "
 "copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, "
 "and to permit persons to whom the Software is furnished to do so, subject to the following conditions:"
-"The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.";
-
-char LISENCE_TEXT2[1024] =
+"The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n"
 "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, "
 "INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR "
 "PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE "
@@ -28,7 +26,6 @@ int main(int argc, char* argv[])
         .add_copyright("MIT License")
         .add_copyright("Copyright (c) 20025 okano tomoyuki")
         .add_copyright(LISENCE_TEXT1)
-        .add_copyright(LISENCE_TEXT2)
         .add_option({
             {'b', "binary", "binary hex dump output."},
             {'f', "filter", "filter"},
@@ -107,9 +104,16 @@ int main(int argc, char* argv[])
         }
     }
 
+
+    auto meta       = std::string();
+    auto payload    = std::string();
     while (true)
     {
-        std::cout << raw_socket.capture() << std::endl;
+        if (raw_socket.capture(meta, payload))
+        {
+            // std::cout << "meta: " << meta << std::endl;
+            std::cout << payload << std::endl;
+        }
     }
 
     return 0;
