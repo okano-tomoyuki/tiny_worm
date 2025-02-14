@@ -25,15 +25,11 @@
 class RawSocket
 {
 public:
-    enum OptionType
-    {
-        SRC_ADDR,
-        DST_ADDR,
-        BOTH_ADDR,
-        SRC_PORT,
-        DST_PORT,
-        BOTH_PORT,
-    };
+    std::vector<std::string>    protocols;
+    std::vector<std::string>    src_addrs;
+    std::vector<std::string>    dst_addrs;
+    std::vector<int>            src_ports;
+    std::vector<int>            dst_ports;
 
     template<typename T>
     class Option
@@ -48,7 +44,7 @@ public:
 
     std::vector<std::string> enable_addr_list() const;
     void set_addr(const std::string& addr_name);
-    bool capture(std::string& meta, std::string& payload) const;
+    bool capture(std::string& raw_packet, std::string& meta, std::string& payload) const;
 
     RawSocket& add_filter();
 

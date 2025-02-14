@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 
 #include "cli_option.hpp"
 #include "raw_socket.hpp"
@@ -16,6 +17,31 @@ char LISENCE_TEXT1[1024] =
 "FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, "
 "ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.";
 
+std::string ascii_str(const std::string& payload)
+{
+    auto ret = payload;
+    for (auto& c : ret)
+    {
+        if (!std::isprint(c) && c == '\n')
+            c = ' ';
+    }
+    return ret;
+}
+
+std::string hex_str(const std::string& payload)
+{
+    constexpr char hex[16] = { '0', '1', '2','3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+    auto ret    = std::string(' ', payload.size() * 3);
+    
+    for (auto i = 0; i < payload.size(); i++)
+    {
+        ret[3 * i]      = hex[(((uint8_t)payload[i]) >> 4) & 0x0F];
+        ret[3 * i + 1]  = hex[(uint8_t)payload[i] & 0x0F];
+    }
+
+    return ret;
+}
+
 int main(int argc, char* argv[])
 {
     auto cli_option = CliOption();
@@ -27,7 +53,10 @@ int main(int argc, char* argv[])
         .add_copyright("Copyright (c) 20025 okano tomoyuki")
         .add_copyright(LISENCE_TEXT1)
         .add_option({
-            {'b', "binary", "binary hex dump output."},
+            {'a', "ascii", "enable console output payload by ascii text format.(default)"},
+            {'A', "no-ascii", "disable console output payload by ascii text format."},
+            {'b', "binary", "enable console output payload by binary hex dump format."},
+            {'B', "no-binary", "disable console output payload by binary hex dump format.(default)"},
             {'f', "filter", "filter"},
             {'h', "help", "show help"},
             {'i', "ip-address", "specify ip address for capture."},
@@ -83,7 +112,7 @@ int main(int argc, char* argv[])
         const auto addr_list = raw_socket.enable_addr_list();
         for (size_t i = 0; i < addr_list.size(); i++)
         {
-            std::cout << addr_list[i] << "\t:[" << i << "]" << std::endl;
+            std::cout << addr_list[i] << ":[" << i << "]" << std::endl;
         }
 
         while (true)
@@ -104,15 +133,17 @@ int main(int argc, char* argv[])
         }
     }
 
-
+    auto raw_packet = std::string();
     auto meta       = std::string();
     auto payload    = std::string();
+
     while (true)
     {
-        if (raw_socket.capture(meta, payload))
+        if (raw_socket.capture(raw_packet, meta, payload))
         {
+
             // std::cout << "meta: " << meta << std::endl;
-            std::cout << payload << std::endl;
+            // std::cout << payload << std::endl;
         }
     }
 

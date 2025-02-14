@@ -123,8 +123,11 @@ struct UdpHeader
 };
 #pragma pack()
 
+namespace 
+{
+
 template<typename T>
-static T byte_swap(T value)
+T byte_swap(T value)
 {
     uint8_t* first = (uint8_t*)&value;
     uint8_t* last  = first + sizeof(T);
@@ -132,13 +135,27 @@ static T byte_swap(T value)
     return value;        
 }
 
-static std::string get_error()
+template<typename T>
+std::string to_str(const T& v)
+{
+    return std::to_string(v);
+}
+
+std::string get_error()
 {
 #ifdef __unix__
     return std::to_string(errno);
 #else
     return std::to_string(WSAGetLastError());
 #endif
+}
+
+template<typename T, typename U>
+bool is_target(const T& v, const std::vector<U>& list)
+{
+    return !list.empty() && std::find(list.begin(), list.end(), v) != list.end();
+}
+
 }
 
 RawSocket::RawSocket()
@@ -268,42 +285,47 @@ void RawSocket::set_addr(const std::string& addr_name)
 #endif
 }
 
-bool RawSocket::capture(std::string& meta, std::string& payload) const
+bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string& payload) const
 {
+    raw_packet.clear();
     meta.clear();
     payload.clear();
     const auto bytes    = recv(sock_, (char*)buffer_, sizeof(buffer_), 0);
     
     auto ntoa = [](const uint32_t addr)
     {
-        return          std::to_string((addr >>  0) & 0xFF) 
-                + "." + std::to_string((addr >>  8) & 0xFF) 
-                + "." + std::to_string((addr >> 16) & 0xFF) 
-                + "." + std::to_string((addr >> 24) & 0xFF);
+        return          to_str((addr >>  0) & 0xFF) 
+                + "." + to_str((addr >>  8) & 0xFF) 
+                + "." + to_str((addr >> 16) & 0xFF) 
+                + "." + to_str((addr >> 24) & 0xFF);
     };
 
     if (bytes > 0)
     {
         if (bytes >= sizeof(IpHeader))
         {
-            const auto ih       = (IpHeader*)((void*)&buffer_);
+            raw_packet          = std::string((char*)&buffer_, bytes);
+            const auto ih       = (IpHeader*)&buffer_;
             const auto ihl      = (ih->vhl & 0x0f) * 4;
             const auto flags    = (byte_swap(ih->flag_offset) >> 13) & 0x07;
             const auto offset   = (byte_swap(ih->flag_offset) & 0x1FFF) * 8;
+            const auto src_addr = ntoa(ih->src_addr);
+            const auto dst_addr = ntoa(ih->dst_addr);
+            const auto protocol = std::string(PROTO_NAMES[ih->protocol]);
 
             meta += "IP Header:\n";
-            meta += "  Version: " + std::to_string((ih->vhl >> 4) & 0x0F) + "\n";
-            meta += "  Header Length: " + std::to_string(ihl) + " bytes \n";
-            meta += "  Type of Service: " + std::to_string(ih->tos) + "\n";
-            meta += "  Total Length: " + std::to_string(byte_swap(ih->len)) + " bytes \n";
-            meta += "  Identification: " + std::to_string(byte_swap(ih->id)) + "\n";
-            meta += "  Flags: " + std::to_string(flags) + "\n";
-            meta += "  Fragment Offset: " + std::to_string(offset) + "\n";
-            meta += "  Time to Live: " + std::to_string(ih->ttl) + "\n";
-            meta += "  Protocol: " + std::string(PROTO_NAMES[ih->protocol]) + "\n";
-            meta += "  Header Checksum: " + std::to_string(ih->checksum) + "\n";
-            meta += "  Source Address: " + ntoa(ih->src_addr) + "\n";
-            meta += "  Destination Address: " + ntoa(ih->dst_addr) + "\n";
+            meta += "  Version              : " + to_str((ih->vhl >> 4) & 0x0F) + "\n";
+            meta += "  Header Length        : " + to_str(ihl) + " bytes \n";
+            meta += "  Type of Service      : " + to_str(ih->tos) + "\n";
+            meta += "  Total Length         : " + to_str(byte_swap(ih->len)) + " bytes \n";
+            meta += "  Identification       : " + to_str(byte_swap(ih->id)) + "\n";
+            meta += "  Flags                : " + to_str(flags) + "\n";
+            meta += "  Fragment Offset      : " + to_str(offset) + "\n";
+            meta += "  Time to Live         : " + to_str(ih->ttl) + "\n";
+            meta += "  Protocol             : " + protocol + "\n";
+            meta += "  Header Checksum      : " + to_str(ih->checksum) + "\n";
+            meta += "  Source Address       : " + src_addr + "\n";
+            meta += "  Destination Address  : " + dst_addr + "\n";
 
             if (ih->protocol == IPPROTO_ICMP)
             {
@@ -317,19 +339,36 @@ bool RawSocket::capture(std::string& meta, std::string& payload) const
                 const auto igmp_type    = igmp_header->type & 0x0F;
             }
 
-            if (ih->protocol == IPPROTO_TCP)
+            if (ih->protocol == IPPROTO_TCP && is_target(protocol, protocols))
             {
                 const auto tcp_header   = (TcpHeader*)&buffer_[ihl];
+                const auto src_port     = byte_swap(tcp_header->src_port);
+                const auto dst_port     = byte_swap(tcp_header->dst_port);
                 payload = std::string((char*)&buffer_[ihl + sizeof(TcpHeader)], bytes - ihl - sizeof(TcpHeader));
             }
 
-            if (ih->protocol == IPPROTO_UDP)
+            if (ih->protocol == IPPROTO_UDP && is_target(protocol, protocols))
             {
                 const auto udp_header   = (UdpHeader*)&buffer_[ihl];
-                payload = std::string((char*)&buffer_[ihl + sizeof(UdpHeader)], byte_swap(udp_header->len));
+                const auto src_port     = byte_swap(udp_header->src_port);
+                const auto dst_port     = byte_swap(udp_header->dst_port);
+                const auto len          = byte_swap(udp_header->len);
+
+                if (!is_target(src_port, src_ports) && is_target(dst_port, dst_ports))
+                {
+                    raw_packet.clear();
+                    meta.clear();
+                    return false;
+                }
+
+                meta += "UDP Header:\n";
+                meta += "  Source Address       : " + to_str(src_port)   + "\n";
+                meta += "  Destination Address  : " + to_str(dst_port)   + "\n";
+                meta += "  Length               : " + to_str(len)        + "\n";
+                payload = std::string((char*)&buffer_[ihl + sizeof(UdpHeader)], len);
             }
         }
     }
 
-    return !meta.empty() || !payload.empty();
+    return !raw_packet.empty();
 }

@@ -9,26 +9,30 @@
 
 static void add_lines(const std::string& str, std::vector<std::string>& lines)
 {
+    constexpr int line_size = 95;
     auto remain = str;
     auto pos    = std::string::size_type{0};
-    auto line   = std::string();
+
+    const auto min_value = [](const std::string::size_type& lhs, const std::string::size_type& rhs)
+    {
+        return (lhs < rhs) ? lhs : rhs;
+    };
 
     while (true)
     {
-        if (remain.size() < 100)
+        if (remain.size() < line_size)
         {
             lines.push_back(remain);
             lines.push_back("");
             break;
         }
 
-        line   = remain.substr(0, 100);
-        pos    = line.find_last_of(",. \n", 100);
+        pos    = min_value(remain.find_first_of("\n"), remain.find_last_of(",. ", line_size));
 
         if (pos == std::string::npos)
         {
-            lines.push_back(remain.substr(0, 100));
-            remain = remain.substr(100);
+            lines.push_back(remain.substr(0, line_size));
+            remain = remain.substr(line_size);
         }
         else
         {
@@ -43,8 +47,6 @@ static void add_lines(const std::string& str, std::vector<std::string>& lines)
                 lines.push_back(remain.substr(0, pos + 1));
                 remain = remain.substr(pos + 1);
             }
-            // lines.push_back(remain.substr(0, pos + 1));
-            // remain = remain.substr(pos + 1);
         }
     }
 }
