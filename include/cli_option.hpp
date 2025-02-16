@@ -7,6 +7,7 @@
 #include <sstream>
 #include <algorithm>
 #include <tuple>
+#include <map>
  
 class CliOption
 {
@@ -52,7 +53,7 @@ public:
     inline T get(const char& key) const
     {
         auto ret = T();
-        get_to(key, ret);
+        try_get(key, ret);
         return ret;
     }
 
@@ -60,12 +61,12 @@ public:
     inline T get(const std::string& key) const
     {
         auto ret = T();
-        get_to(key, ret);
+        try_get(key, ret);
         return ret;
     }
 
     template<typename T>
-    inline bool get_to(const char& key, T& value) const
+    inline bool try_get(const char& key, T& value) const
     {
         const auto iter = std::find_if(option_list_.begin(), option_list_.end(), [&key](const Option& option) { return (key == option.short_name); });
         
@@ -79,11 +80,11 @@ public:
             return false;
         }
 
-        return assign(iter->arg_list[0], value);
+        return try_assign(value, iter->arg_list[0]);
     }
 
     template<typename T>
-    inline bool get_to(const char& key, std::vector<T>& value) const
+    inline bool try_get(const char& key, std::vector<T>& value) const
     {
         const auto iter = std::find_if(option_list_.begin(), option_list_.end(), [&key](const Option& option) { return (key == option.short_name); });
         
@@ -92,11 +93,11 @@ public:
             return false;
         }
 
-        return assign(iter->arg_list, value);
+        return try_assign(value, iter->arg_list);
     }    
 
     template<typename T>
-    inline bool get_to(const std::string& key, T& value) const
+    inline bool try_get(const std::string& key, T& value) const
     {
         const auto iter = std::find_if(option_list_.begin(), option_list_.end(), [&key](const Option& option) { return (key == option.long_name); });
         
@@ -110,11 +111,11 @@ public:
             return false;
         }
 
-        return assign(iter->arg_list[0], value);
+        return try_assign(value, iter->arg_list[0]);
     }
 
     template<typename T>
-    inline bool get_to(const std::string& key, std::vector<T>& value) const
+    inline bool try_get(const std::string& key, std::vector<T>& value) const
     {
         const auto iter = std::find_if(option_list_.begin(), option_list_.end(), [&key](const Option& option) { return (key == option.long_name); });
         
@@ -123,7 +124,7 @@ public:
             return false;
         }
 
-        return assign(iter->arg_list, value);
+        return try_assign(value, iter->arg_list);
     } 
 
 private:
@@ -152,21 +153,21 @@ private:
     std::vector<std::string> footer_;
     std::vector<std::string> copyright_;
 
-    static bool assign(const std::string& str, bool& ret);
+    static bool try_assign(bool& dst, const std::string& src);
 
-    static bool assign(const std::string& str, int& ret);
+    static bool try_assign(int& dst, const std::string& src);
 
-    static bool assign(const std::string& str, double& ret);
+    static bool try_assign(double& dst, const std::string& src);
 
-    static bool assign(const std::string& str, std::string& ret);
+    static bool try_assign(std::string& dst, const std::string& src);
 
-    static bool assign(const std::vector<std::string>& str_list, std::vector<bool>& ret);
+    static bool try_assign(std::vector<bool>& dst, const std::vector<std::string>& src);
 
-    static bool assign(const std::vector<std::string>& str_list, std::vector<int>& ret);
+    static bool try_assign(std::vector<int>& dst, const std::vector<std::string>& src);
 
-    static bool assign(const std::vector<std::string>& str_list, std::vector<double>& ret);
+    static bool try_assign(std::vector<double>& dst, const std::vector<std::string>& src);
     
-    static bool assign(const std::vector<std::string>& str_list, std::vector<std::string>& ret);
+    static bool try_assign(std::vector<std::string>& dst, const std::vector<std::string>& src);
 
 };
  

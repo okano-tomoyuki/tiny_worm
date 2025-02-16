@@ -235,7 +235,7 @@ std::vector<std::string> RawSocket::enable_addr_list() const
     {
         ret.push_back(inet_ntoa(((sockaddr_in*)list->Address[i].lpSockaddr)->sin_addr));
     }
-
+    
     return ret;
 
     // auto ret    = std::vector<std::string>();  
@@ -313,6 +313,11 @@ bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string&
             const auto dst_addr = ntoa(ih->dst_addr);
             const auto protocol = std::string(PROTO_NAMES[ih->protocol]);
 
+            if (!is_target(src_addr, addrs) && !is_target(dst_addr, addrs))
+            {
+                return false;
+            }
+
             meta += "IP Header:\n";
             meta += "  Version              : " + to_str((ih->vhl >> 4) & 0x0F) + "\n";
             meta += "  Header Length        : " + to_str(ihl) + " bytes \n";
@@ -354,7 +359,7 @@ bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string&
                 const auto dst_port     = byte_swap(udp_header->dst_port);
                 const auto len          = byte_swap(udp_header->len);
 
-                if (!is_target(src_port, src_ports) && is_target(dst_port, dst_ports))
+                if (!is_target(src_port, ports) && is_target(dst_port, ports))
                 {
                     raw_packet.clear();
                     meta.clear();

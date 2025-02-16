@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <fstream>
 
 #include "cli_option.hpp"
 #include "raw_socket.hpp"
@@ -33,7 +34,7 @@ std::string hex_str(const std::string& payload)
     constexpr char hex[16] = { '0', '1', '2','3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
     auto ret    = std::string(' ', payload.size() * 3);
     
-    for (auto i = 0; i < payload.size(); i++)
+    for (size_t i = 0; i < payload.size(); i++)
     {
         ret[3 * i]      = hex[(((uint8_t)payload[i]) >> 4) & 0x0F];
         ret[3 * i + 1]  = hex[(uint8_t)payload[i] & 0x0F];
@@ -57,13 +58,12 @@ int main(int argc, char* argv[])
             {'A', "no-ascii", "disable console output payload by ascii text format."},
             {'b', "binary", "enable console output payload by binary hex dump format."},
             {'B', "no-binary", "disable console output payload by binary hex dump format.(default)"},
-            {'f', "filter", "filter"},
             {'h', "help", "show help"},
             {'i', "ip-address", "specify ip address for capture."},
             {'l', "list", "show list ip address for capture."},
             {'o', "output", "output file path."},
             {'p', "port", "source or destination port number. (vaild in TCP/UDP)"},
-            {'t', "transport", "transport protocol. [TCP | UDP | ICMP | number]"},
+            {'t', "type", "type of protocol. [TCP | UDP | ICMP | number of protocol]"},
             {'v', "version", "show version."},
         });
 
@@ -102,35 +102,85 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // filter ip address
     if (cli_option.has('i'))
     {
-        const auto ip_address = cli_option.get<std::string>('i');
-        raw_socket.set_addr(ip_address);
-    }
-    else
-    {        
-        const auto addr_list = raw_socket.enable_addr_list();
-        for (size_t i = 0; i < addr_list.size(); i++)
+        if (cli_option.try_get('i', raw_socket.addrs))
         {
-            std::cout << addr_list[i] << ":[" << i << "]" << std::endl;
-        }
-
-        while (true)
-        {
-            std::cout << "choose address:";
-            
-            size_t addr_no = -1;
-            std::cin >> addr_no;
-            
-            if (addr_no < 0 || addr_list.size() <= addr_no)
+            std::cout << "filtered ip address: ";
+            for (const auto& addr : raw_socket.addrs)
             {
-                std::cout << "invalid number."  << std::endl;
-                continue;
+                std::cout << addr << " ";
             }
-            
-            raw_socket.set_addr(addr_list[addr_no]);
-            break;
+            std::cout << std::endl;
         }
+    }
+
+    // filter port
+    if (cli_option.has('p'))
+    {
+        if (cli_option.try_get('p', raw_socket.ports))
+        {
+            std::cout << "filtered port: ";
+            for (const auto& port : raw_socket.ports)
+            {
+                std::cout << port << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    // filter protocol
+    if (cli_option.has('t'))
+    {
+        if (cli_option.try_get('t', raw_socket.protocols))
+        {
+            std::cout << "filtered protocol: ";
+            for (const auto& protocol : raw_socket.protocols)
+            {
+                std::cout << protocol << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    // output file
+    auto  output_file = std::ofstream();
+    if (cli_option.has('o'))
+    {
+        auto output_file_path = std::string();
+        if (cli_option.try_get('o', output_file_path))
+        {
+            output_file.open(output_file_path, std::ios::out | std::ios::binary);
+            if (!output_file.is_open())
+            {
+                std::cerr << "failed to open '" << output_file_path << "'." << std::endl;
+                return 1;
+            }
+        }
+    }
+
+    const auto addr_list = raw_socket.enable_addr_list();
+    for (size_t i = 0; i < addr_list.size(); i++)
+    {
+        std::cout << addr_list[i] << ":[" << i << "]" << std::endl;
+    }
+
+    while (true)
+    {
+        std::cout << "choose address:";
+        
+        size_t addr_no = -1;
+        std::cin >> addr_no;
+        
+        if (addr_no < 0 || addr_list.size() <= addr_no)
+        {
+            std::cout << "invalid number."  << std::endl;
+            continue;
+        }
+        
+        raw_socket.set_addr(addr_list[addr_no]);
+        break;
     }
 
     auto raw_packet = std::string();
@@ -141,9 +191,13 @@ int main(int argc, char* argv[])
     {
         if (raw_socket.capture(raw_packet, meta, payload))
         {
+            std::cout << meta       << std::endl;
+            std::cout << payload    << std::endl;
 
-            // std::cout << "meta: " << meta << std::endl;
-            // std::cout << payload << std::endl;
+            if (output_file.is_open())
+            {
+                output_file << raw_packet;
+            }
         }
     }
 

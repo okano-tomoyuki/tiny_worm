@@ -26,10 +26,8 @@ class RawSocket
 {
 public:
     std::vector<std::string>    protocols;
-    std::vector<std::string>    src_addrs;
-    std::vector<std::string>    dst_addrs;
-    std::vector<int>            src_ports;
-    std::vector<int>            dst_ports;
+    std::vector<std::string>    addrs;
+    std::vector<int>            ports;
 
     template<typename T>
     class Option

@@ -217,64 +217,86 @@ bool CliOption::has(const std::string& key) const
     return iter != option_list_.end() && iter->found;
 }
 
-bool CliOption::assign(const std::string& str, bool& ret)
+bool CliOption::try_assign(bool& dst, const std::string& src)
 {
-    if (str != "true" && str != "false" && str != "TRUE" && str != "FALSE" && str != "True" && str != "False")
+    if (src == "true" || src == "TRUE" || src == "True" || src == "1")
     {
-        return false;
+        dst = true;
+        return true;
     }
 
-    ret = (str == "true" || str == "TRUE" || str == "True");
-    return true;
+    if (src == "false" || src == "FALSE" || src == "False" || src == "0")
+    {
+        dst = false;
+        return true;
+    }
+    
+    return false;
 }
 
-bool CliOption::assign(const std::string& str, int& ret)
+bool CliOption::try_assign(int& dst, const std::string& src)
 {
-    char* endptr    = nullptr;
-    ret             = std::strtol(str.c_str(), &endptr, 10);
-    
-    if (endptr == str.c_str())
+    if (src.empty())
         return false;
 
-    return true;
+    char *endptr = nullptr;
+    dst = std::strtol(src.c_str(), &endptr, 10);        
+    if (*endptr == '\0')
+        return true;
+    dst = std::strtol(src.c_str(), &endptr, 8);
+    if (*endptr == '\0')
+        return true;
+    dst = std::strtol(src.c_str(), &endptr, 16);
+    if (*endptr == '\0')
+        return true;
+    return false;
 }
 
-bool CliOption::assign(const std::string& str, double& ret)
+bool CliOption::try_assign(double& dst, const std::string& src)
 {
-    char* endptr    = nullptr;
-    ret             = std::strtod(str.c_str(), &endptr);
-    
-    if (endptr == str.c_str())
+    if (src.empty())
         return false;
-
-    return true;
+    
+    char *endptr = nullptr;
+    dst = std::strtod(src.c_str(), &endptr);
+    if (*endptr == '\0')
+        return true;
+    return false;
 }
 
-bool CliOption::assign(const std::string& str, std::string& ret)
+bool CliOption::try_assign(std::string& dst, const std::string& src)
 {
-    ret = str;
-    return true;
+    if (src.size() >= 2 && src[0] == '\"' && src[src.size() - 1] == '\"')
+    {
+        dst = src.substr(1, src.size() - 2);
+        return true;
+    }
+    else
+    {
+        dst = src;
+        return true;
+    }
 }
 
-bool CliOption::assign(const std::vector<std::string>& str_list, std::vector<bool>& ret)
+bool CliOption::try_assign(std::vector<bool>& dst, const std::vector<std::string>& src)
 {
-    ret.resize(str_list.size());
+    dst.resize(src.size());
     bool r;
-    for (size_t i = 0; i < str_list.size(); i++)
+    for (size_t i = 0; i < src.size(); i++)
     {
-        if (!assign(str_list[i], r))
+        if (!try_assign(r, src[i]))
             return false;
-        ret[i] = r;
+        dst[i] = r;
     }
     return true;
 }
 
-bool CliOption::assign(const std::vector<std::string>& str_list, std::vector<int>& ret)
+bool CliOption::try_assign(std::vector<int>& dst, const std::vector<std::string>& src)
 {
-    ret.resize(str_list.size());
-    for (size_t i = 0; i < str_list.size(); i++)
+    dst.resize(src.size());
+    for (size_t i = 0; i < src.size(); i++)
     {
-        if (!assign(str_list[i], ret[i]))
+        if (!try_assign(dst[i], src[i]))
         {
             return false;
         }
@@ -282,12 +304,12 @@ bool CliOption::assign(const std::vector<std::string>& str_list, std::vector<int
     return true;
 }
 
-bool CliOption::assign(const std::vector<std::string>& str_list, std::vector<double>& ret)
+bool CliOption::try_assign(std::vector<double>& dst, const std::vector<std::string>& src)
 {
-    ret.resize(str_list.size());
-    for (size_t i = 0; i < str_list.size(); i++)
+    dst.resize(src.size());
+    for (size_t i = 0; i < src.size(); i++)
     {
-        if (!assign(str_list[i], ret[i]))
+        if (!try_assign(dst[i], src[i]))
         {
             return false;
         }
@@ -295,8 +317,15 @@ bool CliOption::assign(const std::vector<std::string>& str_list, std::vector<dou
     return true;
 }
 
-bool CliOption::assign(const std::vector<std::string>& str_list, std::vector<std::string>& ret)
+bool CliOption::try_assign(std::vector<std::string>& dst, const std::vector<std::string>& src)
 {
-    ret = str_list;
+    dst.resize(src.size());
+    for (size_t i = 0; i < src.size(); i++)
+    {
+        if (!try_assign(dst[i], src[i]))
+        {
+            return false;
+        }
+    }
     return true;
 }
