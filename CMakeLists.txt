@@ -24,9 +24,11 @@ else()
 endif()
 
 add_subdirectory(src)
+add_subdirectory(test)
+
 add_executable(${PROJECT_NAME}
     main.cpp
-    # tiny_worm.o
+    rc/tiny_worm.res
     ${HEADER_FILE_LIST}
 )
 

@@ -1,4 +1,4 @@
-set(lib_name_list raw_socket cli_option)
+set(lib_name_list raw_socket cli_option ini)
 
 if (MINGW)
     find_library(WSOCK32_LIBRARY wsock32)
