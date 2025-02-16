@@ -43,6 +43,59 @@ std::string hex_str(const std::string& payload)
     return ret;
 }
 
+void show_lines(std::string& meta, std::string& payload)
+{
+    auto sep_lines = [](std::string& str, const size_t& line_size)
+    {
+        auto pos = std::string::size_type{0};
+        auto lines = std::vector<std::string>{};
+        while (true)
+        {
+            pos = str.find_first_of('\n');
+            if (pos == std::string::npos)
+            {
+                lines.push_back(str + std::string(line_size - str.size(), ' '));
+                break;
+            }
+            else
+            {
+                lines.push_back(str.substr(0, pos) + std::string(line_size - pos, ' '));
+                str = str.substr(pos + 1);
+            }
+        }
+        return lines;
+    };
+
+    auto meta_lines     = sep_lines(meta, 40);
+    auto payload_lines  = sep_lines(payload, 100);
+
+    if (meta_lines.size() < payload_lines.size())
+    {
+        for (size_t i = 0; i < meta_lines.size(); i++)
+        {
+            std::cout << "| " << meta_lines[i] << " | " << payload_lines[i] << " |" << std::endl;
+        }
+
+        for (size_t i = meta_lines.size(); i < payload_lines.size(); i++)
+        {
+            std::cout << "| " << std::string(40, ' ') << " | " << payload_lines[i] << " |" << std::endl;
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < payload_lines.size(); i++)
+        {
+            std::cout << "| " << meta_lines[i] << " | " << payload_lines[i] << " |" << std::endl;
+        }
+
+        for (size_t i = payload_lines.size(); i < meta_lines.size(); i++)
+        {
+            std::cout << "| " << meta_lines[i] << " | " << std::string(100, ' ') << " |" << std::endl;
+        }
+    }
+    std::cout << "| " << std::string(40, '-') << " | " << std::string(100, '-') << " |" << std::endl;
+}
+
 int main(int argc, char* argv[])
 {
     auto cli_option = CliOption();
@@ -191,8 +244,9 @@ int main(int argc, char* argv[])
     {
         if (raw_socket.capture(raw_packet, meta, payload))
         {
-            std::cout << meta       << std::endl;
-            std::cout << payload    << std::endl;
+            // std::cout << meta       << std::endl;
+            // std::cout << payload    << std::endl;
+            show_lines(meta, payload);
 
             if (output_file.is_open())
             {
