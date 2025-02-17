@@ -332,16 +332,19 @@ bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string&
             meta += "  Source Address       : " + src_addr + "\n";
             meta += "  Destination Address  : " + dst_addr + "\n";
 
-            if (ih->protocol == IPPROTO_ICMP)
+            if (ih->protocol == IPPROTO_ICMP && is_target(protocol, protocols))
             {
                 const auto icmp_header  = (IcmpHeader*)&buffer_[ihl];
+                return true;
             }
 
-            if (ih->protocol == IPPROTO_IGMP)
+            if (ih->protocol == IPPROTO_IGMP && is_target(protocol, protocols))
             {
                 const auto igmp_header  = (IgmpHeader*)&buffer_[ihl];
                 const auto igmp_ver     = (igmp_header->type >> 4) & 0x0F;
                 const auto igmp_type    = igmp_header->type & 0x0F;
+
+                return true;
             }
 
             if (ih->protocol == IPPROTO_TCP && is_target(protocol, protocols))
@@ -357,6 +360,8 @@ bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string&
                     return false;
                 }
                 payload = std::string((char*)&buffer_[ihl + sizeof(TcpHeader)], bytes - ihl - sizeof(TcpHeader));
+
+                return true;
             }
 
             if (ih->protocol == IPPROTO_UDP && is_target(protocol, protocols))
@@ -374,13 +379,15 @@ bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string&
                 }
 
                 meta += "UDP Header:\n";
-                meta += "  Source Address       : " + to_str(src_port)   + "\n";
-                meta += "  Destination Address  : " + to_str(dst_port)   + "\n";
+                meta += "  Source Port          : " + to_str(src_port)   + "\n";
+                meta += "  Destination Port     : " + to_str(dst_port)   + "\n";
                 meta += "  Length               : " + to_str(len)        + "\n";
                 payload = std::string((char*)&buffer_[ihl + sizeof(UdpHeader)], len);
+
+                return true;
             }
         }
     }
 
-    return !raw_packet.empty();
+    return false;
 }
