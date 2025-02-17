@@ -153,7 +153,7 @@ std::string get_error()
 template<typename T, typename U>
 bool is_target(const T& v, const std::vector<U>& list)
 {
-    return !list.empty() && std::find(list.begin(), list.end(), v) != list.end();
+    return list.empty() || std::find(list.begin(), list.end(), v) != list.end();
 }
 
 }
@@ -349,6 +349,13 @@ bool RawSocket::capture(std::string& raw_packet, std::string& meta, std::string&
                 const auto tcp_header   = (TcpHeader*)&buffer_[ihl];
                 const auto src_port     = byte_swap(tcp_header->src_port);
                 const auto dst_port     = byte_swap(tcp_header->dst_port);
+
+                if (!is_target(src_port, ports) && is_target(dst_port, ports))
+                {
+                    raw_packet.clear();
+                    meta.clear();
+                    return false;
+                }
                 payload = std::string((char*)&buffer_[ihl + sizeof(TcpHeader)], bytes - ihl - sizeof(TcpHeader));
             }
 

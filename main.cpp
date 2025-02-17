@@ -18,15 +18,14 @@ char LISENCE_TEXT1[1024] =
 "FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, "
 "ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.";
 
-std::string ascii_str(const std::string& payload)
+std::string& ascii_str(std::string& payload)
 {
-    auto ret = payload;
-    for (auto& c : ret)
+    for (auto& c : payload)
     {
-        if (!std::isprint(c) && c == '\n')
-            c = ' ';
+        if (!std::isprint(c) && c != '\n')
+            c = '?';
     }
-    return ret;
+    return payload;
 }
 
 std::string hex_str(const std::string& payload)
@@ -45,20 +44,28 @@ std::string hex_str(const std::string& payload)
 
 void show_lines(std::string& meta, std::string& payload)
 {
-    auto sep_lines = [](std::string& str, const size_t& line_size)
+    auto sep_lines = [](std::string& str, const std::string::size_type& line_size)
     {
         auto pos = std::string::size_type{0};
         auto lines = std::vector<std::string>{};
+        
         while (true)
-        {
+        {    
             pos = str.find_first_of('\n');
             if (pos == std::string::npos)
             {
+                while (str.size() > line_size)
+                {
+                    lines.push_back(str.substr(0, line_size));
+                    str = str.substr(line_size);
+                }
+
                 lines.push_back(str + std::string(line_size - str.size(), ' '));
                 break;
             }
             else
             {
+                pos = (line_size < pos) ? line_size : pos;
                 lines.push_back(str.substr(0, pos) + std::string(line_size - pos, ' '));
                 str = str.substr(pos + 1);
             }
@@ -67,7 +74,7 @@ void show_lines(std::string& meta, std::string& payload)
     };
 
     auto meta_lines     = sep_lines(meta, 40);
-    auto payload_lines  = sep_lines(payload, 100);
+    auto payload_lines  = sep_lines(ascii_str(payload), 100);
 
     if (meta_lines.size() < payload_lines.size())
     {
