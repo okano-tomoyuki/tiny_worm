@@ -28,7 +28,7 @@ add_subdirectory(test)
 
 add_executable(${PROJECT_NAME}
     main.cpp
-    rc/tiny_worm.res
+    # rc/tiny_worm.res
     ${HEADER_FILE_LIST}
 )
 
